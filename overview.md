@@ -1,22 +1,48 @@
 Popisuji zde syntaxi neformálně. Tento dokument bude zdrojem pro uživatelský manuál.
 Formální definice gramatiky je v souboru `grammar.md`.
-Při popisu syntaxe používám závorky pro označení nepovinných částí.
+Zde při popisu syntaxe používám závorky pro označení nepovinných částí.
 Specifické pojmenované části uvozuji do složených závorek.
 Závorky jako symbol jazyka vždy odděluji z obou stran mezerami.
 Zápis `(x y z (...))` znamená nepovinné opakování `x y z`.
 Při takovém zápisu může dojít k nějakým nejednoznačnostem v interpretaci, takže spoléhám na odvození správné interpretace z kontextu.
-Výsledný manuál bude ale psán v nějakém grafickém formátu, kde bude použito různých barev a stylů písma k odlišení této notace.
+Výsledný manuál bude ale psán v nějakém grafickém formátu, kde bude využito různých barev a stylů písma k odlišení této notace.
+V blockquotech (>) uvádím detailnější důvody ke konkrétním rozhodnutím.
+[^N] odkazuje na poznámku, která je vždy uvedena na konci aktuální sekce.
+Sekce jsou odděleny nadpisy (##...).
 
 ## Obecná struktura programu
 
 Celý program je posloupností **příkazů** oddělených středníky.
-Příkaz je buď tzv. **nevýrazový**, nebo **výrazový**.
-Pžíkaz je nezávisle na "výrazovosti" tzv. **složený**, nebo **jednoduchý**.
+Příkaz je buď tzv. **nevýrazový** (expression statement), nebo **výrazový** (pure statement).
+Výrazový příkaz může být tzv. **vyjádřený**.
+Pžíkaz je nezávisle na "výrazovosti" tzv. **složený** (composite), nebo **jednoduchý** (simple).
 Výrazový příkaz může být tzv. **right-consuming**, což ovlivňuje jen syntaxi, ne sémantiku.
 Zobecněním výrazů je tzv. **ESX** [^1], což obsahuje jak **výrazy** tak výrazové příkazy.
 Výraz je také příkazem.
 Výrazy také mohou být syntakticky right-consuming.
 I výrazy mohou být složené a jednoduché.
+
+Výrazovost příkazu ovlivňuje možnosti jeho výskytu v kódu.
+Výrazové příkazy je možné v některých kontextech použít roli výrazu - tzv. **vyjádřit** (express).
+Výrazový příkaz se tak stává **vyjádřeným** (expressed statement).
+Vyjádřený příkaz se může stát součástí specifických výrazů.
+
+> Výrazové příkazy umožňují vnořenou procedurální/imperativní definici i v čistě deklarativních výrazech.
+> Umožňují vytvoření nového scopu pro pomocné proměnné.
+> Také nevyžadují dopřednou deklaraci cílových proměnných ve vnějším scopu,
+> což vylučuje potřebu nechávat nedefinované proměnné.
+
+Složenost příkazu i výrazu umožňuje vznik scopu.
+Tento scope zahrnuje např. proměnné deklarované v blocku nebo parametry funkce.
+
+> Termín "složený příkaz" zde má trochu nestandardní význam.
+> Pro block ({}) používám jen termín "block", ne "složený příkaz", protože jde o obecnější pojem.
+> Složeným příkazem je třeba i podmínka s jediným příkazem,
+> což vylučuje možnost deklarovat proměnnou podmíněně,
+> aniž by to bylo explicitně zakázáno u podmínek.
+
+Right-consuming určuje syntaktické chování výrazu.
+V případě příkazu určuje chování výrazu vzniklého vyjádřením příkazu.
 
 Nevýrazovými příkazy jsou:
 
@@ -34,12 +60,14 @@ Výrazovými příkazy jsou:
 
 Samotný výraz není ani výrazovým ani nevýrazovým příkazem.
 
-Složenými jsou příkazy:
+Složenými příkazy jsou:
 
 * blocky
 * některé podmínky (`if`, `when`)
 
-Ostatní výrazy jsou jednoduché.
+Ostatní příkazy jsou jednoduché.
+
+Jediným složeným výrazem je definice anonymní funkce.
 
 Hierarchicky to lze znázornit takto:
 
@@ -47,6 +75,7 @@ Hierarchicky to lze znázornit takto:
     * ESX
         * výraz
         * výrazový příkaz
+            * vyjádřený příkaz
     * nevýrazový příkaz
 
 * příkaz
@@ -57,21 +86,32 @@ Hierarchicky to lze znázornit takto:
     * jednoduchý
     * složený
 
-Výrazovost příkazu vypovídá o jeho použitelnosti v roli výrazu.
-Right-consuming určuje syntaktické chování výrazu.
-V případě příkazu jde jen o vlastnost, která určuje chování výrazu vytvořeného tímto příkazem.
-Složenost příkazu i výrazu umožňuje vytvoření scopu.
-
 [^1] Dočasný název, vymyslím pak něco lepšího.
 
 [^2] V dalších verzích zvažuji implementovat přiřazení jako výraz.
 
-### Typy
+## Běh programu
 
-Typy jsou buď **jednoduché**, nebo **složené**.
+Příkazy programu se **vykonávají** (execute) sekvenčně.
+Sémantiku vykonání specifických příkazů popisuji dále podrobněji.
+
+Výrazy se **vyhodnocují** (evaluate) podle implicitního uzávorkování,
+které také popisuji dále podrobněji.
+
+Vyjádřené příkazy se také vyhodnocují.
+
+## Typy
+
+Typy jsou buď **jednoduché** (simple), nebo **složené** (composite).
 
 Vestavěnými jednoduchými typy jsou `Boolean`, `Integer`, `Real` a `Complex` [^1].
 Složené typy se vytvoří z jednoduchých a reprezentují funkce, buffery a vektory. [^1]
+
+> Některé složené typy bude možné vytvořit jen z těch jednoduchých,
+> proto je takto rozděluji.
+
+> Boolean by sice nebyl potřeba, ale ve spojení s omezením implicitních konverzí (popsáno dále)
+> poskytuje dodatečné kontroly při překladu, které mohou omezit některé uživatelské chyby.
 
 Uživatel může nadefinovat vlastní typy pomocí příkazu **typového aliasu**:
 
@@ -82,7 +122,7 @@ type {name} = {type}
 `{name}` je název nového typu  
 `{type}` je libovolný typ
 
-Typový alias je v kontextu jen po deklaraci a v rámci svého **scopu**. *Podrobněji ke konceptu scopu se dostanu dále.*
+Typový alias je v kontextu jen po deklaraci a v rámci svého **scopu**.
 
 Vestavěné jednoduché typy i uživatelem nadefinované aliasy vždy začínají velkým písmenem
 a pokračují posloupností malých i velkých písmen, podtržítek a číslic.
@@ -94,7 +134,19 @@ type Bool = Boolean;
 type Int  = Integer;
 ```
 
+> Integer a Boolean jsou dost zdlouhavé názvy pro tak často používané typy.
+> Na druhou stranu nechci žádné vestavěné konstrukty pojmenovávat zkratkově,
+> abych pak neřešil nějaké konvence, aby to bylo konzistentní.
+> Je to taková maličkost, ale podle mě docela důležitá maličkost.
+> Když se neřeší nějaká konzistence pojmenování, tak to pak dopadá
+> jako třeba v PHP, kde je každá standardní funkce pojmenovaná s jinou konvencí.
+> Proto si také myslím, že pojmenování typů s velkým písmenem bude přínosné pro udržení pojmenovávacích konvencí.
+
 Pro automatické **odvození typu** je zaveden symbol `$`, který lze použít na místě libovolného typu. [^2]
+
+> Chtěl jsem původně `*`, ale to by mohlo vytvořit nejednoznačnosti v gramatice,
+> protože by se to chovalo jako unární prefixové `*` a potenciálně konfliktovalo s binárním infixovým násobením.
+> U `+` a `-` je to stejné a `*` by měla fungovat také, ale zatím to nechci řešit.
 
 Typový systém je statický bez žádného polymorfismu (kromě vestavěných operací).
 Odvození typu neumožňuje polymorfismus, ale jen určuje vhodný typ automaticky za překladu.
@@ -103,7 +155,7 @@ Odvození typu neumožňuje polymorfismus, ale jen určuje vhodný typ automatic
 
 [^2] Odvození typů bude implementováno v dalších verzích.
 
-### Deklarace a přiřazení jednoduchých typů
+## Deklarace a přiřazení jednoduchých typů
 
 Proměnnou jednoduchého typu je možné deklarovat pomocí příkazu **deklarace**:
 
@@ -114,6 +166,8 @@ Proměnnou jednoduchého typu je možné deklarovat pomocí příkazu **deklarac
 `{type}`  je požadovaný typ  
 `{name}`  je název proměnné  
 `{value}` je přiřazená hodnota daná výrazem, nebo výrazovým příkazem
+
+Proměnná tvoří výraz odpovídajícího typu.
 
 Je možné ponechat proměnnou neinicializovanou. Překladač na to však uživatele vždy upozorní,
 protože proměnná před přiřazením nemá definovanou hodnotu - není implicitně inicializovaná na žádnou výchozí hodnotu. [^1]
@@ -132,18 +186,24 @@ Do proměnné jednoduchého typu je možné i po deklaraci [^2] přiřadit pří
 {name} = {value}
 ```
 
+> Prozatím počítám s přiřazením jako příkazem.
+> Vyjadřuje to imperativní význam této operace, takže si myslím, že konceptově to dává smysl.
+
 Na levé straně se může vyskytovat jen název proměnné, ne výraz.
 
-Proměnná tvoří výraz odpovídajícího typu.
+> Reference momentálně neřeším, takže nenastane situace, kdy by výraz měl hodnotu reference,
+> do které by bylo možné přiřadit.
+
+Při přiřazení může dojít k implicitní konverzi, nebo chybě, pokud to není možné.
 
 [^1] Prozatím to nechci řešit, ale implicitně inicializovat dekalrované proměnné na nějakou výchozí hodnotu by možná bylo vhodné.
 
 [^2] Do budoucích verzí zvažuji implementovat i konstantní (imutabilní) proměnné jednoduchých typů.
 
-### Blocky
+## Blocky
 
 **Block** tvoří složený výrazový příkaz.
-Příkazy v blocích jsou odděleny středníkem.
+Block obsahuje příkazy oddělené středníkem.
 Prázdný block je také povolen.
 
 ```
@@ -151,6 +211,10 @@ Prázdný block je také povolen.
 ```
 
 `{stmt}` je libovolný příkaz
+
+**Vykonání:** Příkazy v blocích se vykonávají sekvenčně.
+
+**Vyhodnocení:** Popsáno dále.
 
 ### Podmínky
 
@@ -160,7 +224,7 @@ Podmínka **if** má dvě **větve**:
 if ({cond}) {then} else {else}
 ```
 
-`{cond}` je podmínka daná výrazem  
+`{cond}` je podmínka daná výrazem typu `Boolean`  
 `{then}` je pozitivní větev  
 `{else}` je negativní větev
 
@@ -173,20 +237,24 @@ when ({cond}) {then}
 Použití podmínky if bez negativní větve je syntaktickou chybou,
 stejně tak jako použití podmínky while následnované klíčovým slovem `else` s negativní větví.
 
-Podmínka if může být výrazem, výrazovým i nevýrazovým příkazem v závislosti na větvích.
-Větve mohou být dány výrazy i libovolnými příkazy.
+> Použití when pro podmínku s jedinou větví zjednodušuje gramatiku,
+> nepřidává žádné nekonzistentní výjimky a mohlo by to být i čitelnější pro uživatele
+> i bez použití explicitních blocků.
 
-Má-li podmínka if obě větve dané výrazem, tvoří right-consuming výraz.
-Jinak, má-li oba výrazy dané ESX, tvoří složený výrazový příkaz, který je right-consuming,
-pokud je negativní větev dána výazem, nebo složený right-comsuming příkazem.
+Podmínka if může být výrazem nebo výrazovým i nevýrazovým příkazem v závislosti na větvích.
+Větve mohou být dány výrazy i příkazy.
+
+Má-li podmínka if obě větve dané výrazem, tvoří right-consuming výraz - tzv. **výrazové if** (jinak jde o **příkazové if**).
+Jinak, má-li oba výrazy dané ESX, tvoří výrazový příkaz, který je right-consuming,
+pokud je negativní větev dána výazem, nebo výrazovým right-comsuming příkazem.
 Jinak (má-li alespoň jednu větev danou nevýrazovým příkazem) tvoří složený nevýrazový příkaz.
 
 Podmínka while vždy tvoří složený nevýrazový příkaz. Větve mohou být dány libovolnými příkazy.
 
-Všechny podmínky kromě čistě výrazového if tedy tvoří složené příkazy.
+Všechny podmínky kromě čistě výrazového if tedy tvoří příkazy.
 
 ```
-if (c) x;             // syntaktická chyba, chybí else
+if (c) x;             // syntaktická chyba: chybí else
 when (c) x;           // nevýrazový příkaz
 if (c) x else y;      // výraz - obě větve jsou dány výrazem
 if (c) x else {};     // výrazový příkaz - pravá větev je dána výrazovým příkazem
@@ -194,12 +262,33 @@ if (c) {} else x;     // right-consuming příkaz - pravá větev je dáva výra
 if (c) x = y else y;  // nevýrazový příkaz - jedna z větví je dána nevýrazovým příkazem
 ```
 
-### Right-consuming výrazy
+Při uvedení podmínky jiného typu může dojít k implicitní konverzi, nebo chybě, pokud to není možné.
+
+**Vykonání:**
+
+Je-li podmínka nevyjádřeného příkazového if pravdivá, vykoná se pozitivní větev, jinak negativní.
+Je-li podmínka while pravdivá, vykoná se pozitivní větev.
+
+**Vyhodnocení:** Popsáno dále.
+
+## Right-consuming výrazy
 
 Většina operací mají danou **precedenci** a **asociativitu**, které určují implicitní uzávorkování.
-**Right-consuming** operace však mají naprosto jiné syntaktické chování.
-Right-consuming operace vážou veškerý zbytek příkazu napravo na sebe
+Right-consuming operace však mají naprosto jiné syntaktické chování.
+
+Napřed uvedu terminologii:
+
+**Operace** jsou specifické konstrukty tvořící výrazy (např. volání funkcí, použití operátorů, apod.).
+Operace mají **levé**, **pravé** a **uzavřené** operandy.
+Levé operandy se vyskytují nalevo před ostatními syntaktickými částmi operace - nejsou zleva ničím ohraničeny.
+Pravé operandy nejsou zprava ničím ohraničeny.
+Uzavřené operandy jsou ohraničeny zleva i zprava.
+Např. unární prefixové `+` má jen jeden pravý operand. Binární infixové `+` má levý a pravý operand.
+Výrazové if má dva uzavřené operandy (podmínka a pozitivní větev) a jeden pravý operand (negativní větev).
+
+**Right-consuming** operace vážou veškerý zbytek příkazu napravo na sebe
 a jsou přitom bez explicitního uzávorkování použitelné v libovolné jiné operaci jako pravý operand.
+Celý výraz s right-consuming pravým operandem se také stává right-consuming.
 
 Příkladem je výraz if:
 
@@ -227,7 +316,13 @@ x + (if (c) y else (y + z));
 
 Right-consuming výraz tedy není možné použít jako levý operand binární infixové operace bez explicitního uzávorkování.
 
-### Typová anotace
+> Např. céčkový operátor ?: toto nemusí řešit. Má prostě definovanou nejnižší prioritu, tedy
+> `a == b ? x : x + y` se uzávorkuje `(a == b) ? x : (x + y)`.
+> ?: tedy není možné použít jako operand jiné operace.
+> U výrazového if by to ale bylo zbytečné omezení, protože podmínka je uzavřeným operandem,
+> což umožňuje použití ifu jako pravého operandu.
+
+## Typová anotace
 
 **Explicitní typová anotace** se provede napsáním požadovaného typu před výrazový příkaz:
 
@@ -238,9 +333,9 @@ Right-consuming výraz tedy není možné použít jako levý operand binární 
 `{type}` je požadovaný typ
 `{stmt}` je výazový příkaz
 
-Při explicitní typové anotaci se z (right-consuming) výrazového příkazu stává (right-consuming) výraz.
-Vlastnost right-consuming v kontextu příkazu je syntakticky bezvýznamná.
-Při převodu na výraz se ale zachovává. U příkazu tedy jen vypovídá o syntaktickém chování po potenciálním převodu na výraz.
+Explicitně typově anotovaný (right-consuming) výrazový příkaz tvoří (right-consuming) výraz (spolu s uvedeným typem).
+Vlastnost right-consuming se při typové anotaci zachovává.
+Dochází tak k tzv. **vyjádření příkazu**.
 
 ```
 {};                        // výrazový příkaz
@@ -251,86 +346,127 @@ Int if (c) {} else {};     // výraz se stejnou sémantikou jako výraz (1)
 Int if (c) {} else x + y;  // right-consuming výraz
 ```
 
-Výrazové příkazy je možné použít v roli výrazu buď explicitní typovou anotací, nebo
-v rámci jiného výrazu či příkazu, který umožňuje implicitní typovou anotaci.
+Výrazové příkazy je možné vyjádřit buď explicitní typovou anotací,
+nebo v rámci jiného výrazu či příkazu, který umožňuje implicitní typovou anotaci.
 Příkladem takového příkazu je deklarace s přiřazením, kde hodnota může být uvedena
 samotným výrazovým příkazem, který se implicitně anotuje typem proměnné.
-Sémentika implicitní anotace se u jednotlivých příkazů mírně liší, ale syntaxe zůstává stejná.
+Takový výrazový příkaz sám o sobě netvoří syntakticky výraz, ale je vyjádřen a dochází k vyhodnocení.
+Sémentika implicitní anotace se u jednotlivých příkazů mírně liší.
 
-Použitím nějakého syntaktického konstruktu **v roli výrazu** je myšleno použití samotného výrazu,
-nebo použití hodnoty výrazového příkazu.
-**Hodnotu výrazového příkazu** získá buď uživatel explicitní typovou anotací,
-nebo nějaká specifická vestavěná operace po implicitní anotaci.
-Při použití konstruktu v roli výazu dochází k **evaluaci jeho hodnoty**.
-Použitím **v roli příkazu** je myšleo použití samotného výrazu jako příkazu,
-použití nevýrazového příkazu, nebo použití výazového příkazu bez žádné anotace.
+Vyjádření příkazu vynutí **vyhodnocení hodnoty příkazu**.
 
 ```
-// block v roli výrazu:
-Int i = Real {}; // explicitní vyhodnocení hodnoty příkazu {} s typem Real
-Int i = {};      // operace přiřazení implicitně vyhodnotí hodnotu příkazu {} s typem Int
-// block v roli příkazu:
-{}; // návratová hodnota zde není vyhodnocena
+// vyjádřený block:
+Int i = Real {}; // vyhodnocení hodnoty příkazu {} po explicitní anotaci typem Real
+Int i = {};      // operace přiřazení vyhodnotí hodnotu příkazu {} po implicitní anotaci typem Int
+// nevyjádřený block:
+{}; // hodnota blocku zde není vyhodnocena
 ```
 
-### Sémantika evaluace příkazů - návratová hodnota blocku
+## Vyhodnocení blocků
 
-Syntakticky je možné použít libovolný block v roli výrazu (libovolného typu).
-Aby bylo sémanticky korektní použít block jako výraz, musí mít nějakou **návratovou hodnotu**.
-Návratovou hodnotu blocku v roli výrazu určuje příkaz **vrácení**:
+Syntakticky je možné vyjádřit libovolný block.
+Aby bylo vyjádření i sémanticky korektní, musí mít nějakou **hodnotu**.
+Hodnotu vyjádřeného blocku určuje příkaz **vrácení**:
 
 ```
 return {value}
 ```
 
-`{value}` je návratová hodnota blocku daná výrazem, nebo výrazovým příkazem.
+`{value}` je hodnota blocku daná ESX.
 
-Blocky použité v roli příkazu nemají hodnotu.
-Příkaz vrácení se tedy vždy vztahuje na nejbližší block v roli výrazu, který toto vrácení obsahuje.
-Příkaz vrácení se takto tzv. **propaguje** na odpovídající block v roli výrazu.
-Takový block má jednoznačně určený typ. Hodnota příkazu vrácení musí být implicitně konvertovatelná na tento typ.
-*Podrobněji k typovým konverzím se dostanu dále.*
-Příkaz vrácení ukončuje evaluaci odpovídajícího blocku v roli výazu i běh vnořených blocků v roli příkazů.
-Další příkazy se ignorují.
+Nevyjádřené blocky nemají hodnotu.
+Příkaz vrácení se tedy vždy vztahuje na nejbližší vyjádřený block, který toto vrácení obsahuje.
+Příkaz vrácení se takto tzv. **propaguje** (propagace vrácení) na odpovídající vyjádřený block.
+Vrácení bez žádného vnějšího vyjádřeného blocku je chybou.
+Vyjádřený block má vždy jednoznačně určený typ. Tento typ se také tzv. **propaguje** (propagace typové anotace)
+na hodnotu příkazů vrácení. Dochází tak k implicitní anotaci návratových hodnot daných výrazovým příkazem,
+nebo implicitní konverzi hodnot daných výrazem.
+Příkaz vrácení ukončuje vyhodnocení odpovídajícího vyjádřeného blocku i vykonání vnořených nevyjádřených blocků.
+Další příkazy se tedy ignorují.
 
 ```
 Int x;
-Int { return x };     // návratová hodnota typu Int
-Int { { return x } }; // návrat se propaguje přes jeden vnitřní block na ten vnější v roli výrazu
-Int {};               // syntakticky ok, ale sémanticky dochází k chybě - block v roli výrazu nevrací
-Int { T y; return y } // Potenciální implicitní konverze z T na Int, pokud to je možné; jinak dojde k chybě
+Int { return x };     // hodnota typu Int
+Int { { return x } }; // vrácení se propaguje přes jeden vnitřní block na ten vnější vyjádřený
+Int {};               // syntakticky ok, ale sémanticky dochází k chybě: vyjádřený block nevrací
+Int { T y; return y } // potenciální implicitní konverze z T na Int, pokud to lze, jinak dojde k chybě
 ```
 
-### Sémantika evaluace podmínek
+Podobně se chovají i jiné výrazové příkazy. Může být chybou je vyjádřit i přes to, že to syntakticky lze.
+Výrazový příkaz je **vyjádřitelný**, není-li jeho vyjádření sémantickou chybou.
 
-V případě použití výrazu if v roli výrazu není třeba uvádět typ. Typ se určí z daných větví.
-Vybere se společný typ, na který lze obě větve implicitně konvertovat podle pravidel,
-ke kterým se dostanu dále u konverzí. Na tento společný typ se obě větve konvertují.
-Podle hodnoty podmínky je výslednou hodnotou jedna z větví po konverzi.
-Pokud takový společný typ vybrat nelze, doje k chybě.
+*Terminologie:*
 
-V případě použití výrazového příkazu if v roli výazu se typ v typové anotaci (daný explicitně, nebo implicitně jiným konstruktem)
-použije pro implicitní anotaci větví daných výrazovým příkazem. Je-li jedna z větví dána výrazem,
-musí být na tento typ implicitně konvertovatelná. Na tento typ se potom konvertuje.
-Podle hodnoty podmínky je výslednou hodnotou jedna z větví po konverzi.
+**Propagace vrácení:** Příkaz vrácení se vztahuje k nejbližšímu vyjádřenému příkazu, který toto vrácení obsahuje.
+Propaguje se tak do vnějšího příkazu skrze vnořené nevyjádřené příkazy.
+
+**Propagace typové anotace:** Některé příkazy po vyjádření (explicitní či implicitní anotací) použijí daný typ
+pro implicitní anotaci vnořených výrazobých příkazů, nebo implicitní konverzi výrazů.
+Typ se takto propaguje do hloubky a všechny potřebné výrazové příkazy se anotují a výrazy konvertují.
+Dochází tak jen k implicitním konverzím. V případě nemožné implicitní konverze dochází k chybě.
+
+Propagaci typové anotace znázorňují následující příklady:
+
+```
+Int { return 1.0 };
+// propagace:
+Int { return Int 1.0 }; // chyba: implicitní konverze není možná
+
+Int { return { return 1 } };
+// propagace:
+Int { return Int { return 1 } };     // implicitní anotace blocku
+// další propagace:
+Int { return Int { return Int 1 } }; // případná implicitní konverze
+```
+
+## Vyhodnocení podmínek
+
+Při vyhodnocení výrazového if se jako typ výsledné hodnoty vybere typ jedné z větví,
+na který je druhá větev konvertovatelná.
+Je-li podmínka pravdivá, vyhodnotí se pozitivní větev, jinak negativní větev.
+Hodnota větve (po případné implicitní konverzi) je výslednou hodnotou celého if.
+
+V případě vyjádření výrazového příkazu if se jako výsledný typ použije typ daný typovou anotací
+(daný explicitně, nebo implicitně propagací z vnější typové anotace).
+Tento typ se použije i pro implicitní anotaci větví daných výrazovým příkazem v rámci propagace typové anotace.
+Je-li jedna z větví dána výrazem, dochází k implicitní konverzi, nebo chybě, pokud to není možné.
+Je-li podmínka pravdivá, vyhodnotí se pozitivní větev, jinak negativní větev (po implicitní anotaci).
 
 ```
 Int i = if (c) x else Int { return y }; // if je zde výrazem
-Int i = if (c) x else { return y };     // if je zde výazovým příkazem (v roli výrazu)
-Int i = if (c) x else return y;         // chyba, příkaz vrácení není výrazovým příkazem, tedy i celý if také
+Int i = if (c) x else { return y };     // if je zde výazovým příkazem vyjádřeným v rámci přiřazení
+Int if (c) x else { return y };         // if je zde výazovým příkazem vyjádřeným v rámci explicitní typové anotace
+Int i = if (c) x else return y;         // chyba: příkaz vrácení není výrazovým příkazem, tedy i celý if také
 ```
 
-### Evaluace blocků s podmínkami
+Propagaci typové anotace znázorňují následující příklady:
+
+```
+Int if (c) x else y;
+// propagace:
+Int if (c) Int x else Int y; // případná implicitní konverze
+
+Int if (c) { return 1 } else { return { return 2 } };
+// propagace:
+Int if (c) Int { return 1 } else Int { return { return 2 } };
+// další propagace:
+Int if (c) Int { return Int 1 } else Int { return Int { return 2 } };
+// další propagace:
+Int if (c) Int { return Int 1 } else Int { return Int { return Int 2 } };
+```
+
+## Vyhodnocení blocků s podmínkami
 
 Použití podmínek v blocích umožňuje vrácení z podmíněné větve.
-Aby byl block použitelný v roli výrazu, musí **vracet vždy**.
-Block vrací vždy, obsahuje-li příkaz, který vrací vždy.
+Aby byl block vyjádřitelný, musí **vracet vždy**.
+Block vrací vždy, obsahuje-li alespoň jeden příkaz, který vrací vždy.
 Příkaz vrácení vrací vždy.
 Příkaz if vrací vždy, vracejí-li vždy obě jeho větve.
 
 Je třeba dávat pozor na následující vlastnosti:
 Příkaz when nevrací vždy.
-Vrácení se nepropaguje dále z příkazu v roli výrazu.
+Vrácení se nepropaguje dále z vyjádřeného příkazu.
 
 ```
 Int {};                                // chyba, nikdy nevrací
@@ -342,34 +478,34 @@ Int { { return x } };                  // ok, vrácení se propaguje do vnějš�
 Int { Int { return x } };              // chyba, vrácení se nepropaguje do vněšího blocku
 ```
 
-### Scope
+## Scope
 
 Scope je lexikální a vytváří se složeným příkazem či výrazem.
 Proměnné jsou definováni v rámci scopu nějakého složeného příkazu,
 nebo v rámci globálního scopu, který je dán celým programem.
-Celý program tak představuje nevýazový block s implicitním `{}`.
+Celý program tak sémanticky představuje nevyjádřený block (s implicitním `{}`).
 
-Proměnné jsou viditelné po deklaraci do konce svého scopu i uvnitř vnořených scopů.
+Proměnné jsou **viditelné** po deklaraci do konce svého scopu i uvnitř vnořených scopů.
 Proměnnou je možné deklarovat znovu se stejným jménem ve vnořeném scopu.
 To původní deklaraci tzv. **zastíní**.
 
 ```
 Int i; // v globálním scopu
 {
-    Int j;               // ve scopu blocku (v roli příkazu)
-    Int i;               // zastíní původní deklaraci
+    Int j;                // ve scopu blocku (v roli příkazu)
+    Int i;                // zastíní původní deklaraci
     Int {
-        Int k;           // ve scopu blocku (v roli výazu)
+        Int k;            // ve scopu blocku (v roli výazu)
     };
-    if (c) Int l else {} // ve scopu podmínky
+    if (c) Int l else {}; // ve scopu podmínky
 };
-Int j = i;               // použije se i z globálního scopu
+Int j = i;                // použije se i z globálního scopu
 ```
 
-Deklarace je možná i uvnitř podmínek. Samotná deklarace v některé větvi je sémanticky nepoužitelná.
+Deklarace je možná i uvnitř podmínek. Samotná deklarace v některé větvi je však sémanticky nepoužitelná.
 Překladač na to upozorní jako i u jiných nepoužitých deklarací.
 
-### Funkce
+## Funkce
 
 Funkce je možné deklarovat a definovat příkazem **definice funkce**:
 
@@ -381,7 +517,7 @@ Funkce je možné deklarovat a definovat příkazem **definice funkce**:
 `{name}` je název funkce  
 `{type}` jsou typy parametrů  
 `{param}` jsou názvy parametrů  
-`{body}` je tělo funkce dané výrazem, nebo výrazovým příkazem
+`{body}` je tělo funkce dané ESX
 
 Jelikož deklarace funkce je vždy spjatá s definicí, obojí se bude označovat jako **definice funkce**.
 
@@ -395,10 +531,9 @@ Složený typ funkce je tvořen následujícím způsobem:
 ```
 
 Tělo funkce (`{body}`) je dáno výazem, nebo výrazovým příkazem.
-Hodnota se neevaluje při definici.
+Tělo se nevyhodnocuje při definici, ale až při zavolání funkce.
 Parametry funkce jsou proměnné deklarované ve scopu definice funkce.
-Rozsah tohoto scopu je určen tělem funkce.
-Na scopu funkce není sémanticky nic speciálního.
+Rozsah tohoto scopu je určen tělem funkce. Na scopu funkce není sémanticky nic speciálního.
 Proměnné z vnějšího scopu jsou tedy vždy viditelné i v těle funkce.
 Parametry mohou tyto proměnné zastínit, stejně tak jako proměnné deklarované v těle funkce.
 
@@ -411,15 +546,18 @@ Funkci lze zavolat výrazem **volání**:
 `{fun}` je výraz funkčního typu  
 `{arg}` jsou předané argumenty
 
+Při volání se dané argumenty dosadí za parametry funkce a vyhodnotí se tělo funkce, což dá výslednou hodnotu volání.
+Volání funkce provádí implicitní anotaci argumentů příslušnými typy.
+
 ```
 Int y;
 Int f (Int x) x + y; // funkce typu Int(Int) využívající proměnnou y z vnějšího scopu
 Int i = f(y);        // zavolání funkce a přiřazení výsledné hodnoty
 ```
 
-Tělo funkce může být dáno výazovým příkazem.
+Tělo funkce může být dáno výrazovým příkazem.
 Příkaz vrácení v tomto případě není nijak speciální sémanticky.
-Jde jen o vrácení z výrazového příkazu při evaluaci jeho hodnoty,
+Jde jen o vrácení z výrazového příkazu při vyhodnocení jeho hodnoty,
 která nastane při volání funkce.
 
 ```
@@ -457,7 +595,7 @@ Int j = f(h, i);
 
 Proměnné funkčního typu jsou **imutabilní**. Nelze do nich opakovaně přiřadit.
 Z toho plyne i to, že proměnná funkčního typu musí být definována už při deklaraci.
-To je konzistentní s příkazem definice funkce, který provádní obojí.
+To je konzistentní s příkazem definice funkce, který provádí obojí.
 
 ```
 Int f (Int x) x;
@@ -470,11 +608,11 @@ f = g;          // chyba
 Int(Int) i; // chyba
 ```
 
-[^1] Návratový typ je prozatím povinný. Funkce bez návratové hodnoty budou přidány v dalších verzích.
+[^1] Návratový typ je prozatím povinný. Funkce bez návratové hodnoty budu řešit v dalších verzích.
 
 [^*] Rekurze prozatím není podporována. Neměl by to být problém, ale není to momentálně nutné.
 
-### Anonymní funkce
+## Anonymní funkce
 
 Funkci je možné definovat i výrazem **definice anonymní funkce**:
 
@@ -505,7 +643,7 @@ V budoucích verzích bude vyřešeno odvození návratového typu funkcí, což
 $ g (Int x) Int (Int y) x + y;
 ```
 
-### Hodnoty jednoduchých typů
+## Hodnoty jednoduchých typů
 
 Typ `Integer` bude implementován některým ze znaménkových celočíselných typů v C.
 Přetečení nebude kontrolováno.
@@ -515,9 +653,9 @@ Přetečení ani zaokrouhlovací chyby nebudou kontrolovány.
 
 Typ `Boolean` má dvě hodnoty: `true` a `false`.
 
-### Typová konverze
+## Typová konverze
 
-Použití typu před výrazem je syntakticky podobné typové anotaci, ale sémanticky jde o **typovou konverzi**:
+Uvedení typu před výrazem provádí **explicitní typovou konverzi**:
 
 ```
 {type} {expr}
@@ -526,11 +664,21 @@ Použití typu před výrazem je syntakticky podobné typové anotaci, ale séma
 `{type}` je typ  
 `{expr}` je výraz
 
+> Typová konverze nemá syntaxi volání funkce záměrně.
+> Jde totiž o koncept podobný typové anotaci, co má hlubší význam sémanticky,
+> než pouhé volání uživatelské funkce.
+> Typová konverze má vysokou prioritu narozdíl třeba od céčkového castu.
+> To je kvůli konzistenci s typovou anotací příkazů,
+> tedy např. by nedávalo smysl `Int x + y` implicitně uzávorkovat jako `Int (x + y)`,
+> zatímco `Int {} + {}` je uzávorkováno jako `(Int {}) + {}`.
+
 Při konverzi z `Integer` na `Real` může dojít k zaokrouhlovací chybě.
 Při konverzi z `Real` na `Int` dojde k zaokrouhlení k nule.
 Při konverzi na `Boolean` se nulové hodnoty konvertují na `false`, ostatní na `true`
 Při konverzi z `Boolean` se `true` konvertuje na 0, `false` na 1.
 Konverze mezi funkčním typem a jednoduchým typem není možná.
+Konverze na stejný typ (**triviální konverze**) je identita.
+(Tedy když se někde požaduje hodnota konvertovatelná na nějaký typ, zahrnuje to i hodnoty tohoto typu.)
 
 Další konverze probíhají v tzv. **krocích**:
 
@@ -546,7 +694,7 @@ Tedy například konverze z `Boolean` do `Real` projde dvěma kroky `Boolean -> 
 
 [^1] Převzato z C++ pojmu "narrowing". Nevím ale, jak to vhodně přeložit do češtiny.
 
-### Implicitní konverze
+## Implicitní konverze
 
 Implicitně mohou proběhnout jen nezúžující konverze.
 
@@ -559,7 +707,7 @@ Implicitní konverze probíhají při:
 
 Při výběru overloadu vestavěné operace se vybere operace s typy na které je třeba nejmíň kroků implicitní konverze.
 
-### Literály jednoduchých typů
+## Literály jednoduchých typů
 
 Literálem typu `Int` je libovolná posloupnost číslic reprezentující číslo v desítkové soustavě
 volitelně následovaná znakem `e` či `E`, za kterým pokračuje další posloupnost číslic udávající
@@ -581,7 +729,7 @@ Literály typu `Bool` jsou stringy `true` a `false`.
 
 Literály tvoří výraz odpovídajícího typu.
 
-### Další vestavěné operace
+## Další vestavěné operace
 
 Vestavěné operátory jsou buď unární prefixové, nebo binární infixové.
 Budou zde označeny jednoduše jako **unární** a **binární**.
@@ -604,7 +752,7 @@ Porovnávací operátory:
 * binární **rovnost** a **nerovnost**: `==` `!=`
 
 Logické operátory očekávají operandy typu `Boolean`.
-Konjunkce i disjunkce jsou "short-circuit", tedy zbytečně neevalují operandy, když jejich hodnota o té výsledné nerozhodne.
+Konjunkce i disjunkce jsou "short-circuit", tedy zbytečně nevyhodnocuje operandy, když jejich hodnota o té výsledné nerozhodne.
 
 Celočíselné dělení očekává oba operandy typu `Integer` a výsledkem je `Real`.
 Dělení očekává oba operandy typu `Real` a výsledkem je `Real`.
@@ -634,7 +782,7 @@ Při použití těchto operací na operandech jiných typů dojde k implicitním
 
 Všechny infixové operátory mají levou asociativitu.
 
-Přednost operací:
+Precedence operací:
 
 0. reserved (scope resolution)
 1. volání funkcí
@@ -648,50 +796,19 @@ Přednost operací:
 9. konjunkce (`&&`)
 10. disjunkce (`||`)
 
+> Volání funkcí má přednost před subscriptem záměrně.
+> Žádné "subscriptovatelné" objekty v jazyce nebudou obsahovat složené typy, tedy ani funkce.
+> Je tedy syntakticky nemožné psát `v[i](a)`.
+> Je to však možné po explicitním uzávorkování `(v[i])(a)`,
+> ale stále to není možné provést sémanticky na žádném vektoru ani bufferu.
+
+> Volání funkcí má také přednost před typovou konverzí.
+> `Int f(a)` je tedy implicitně uzávorkováno jako `Int (f(a))`.
+> Nepřepodkládám, že budou potřeba nějaké konverze funkčních typů,
+> ale i kdyby byly potřeba, tak se prostě zapíší s explicitním uzávorkováním, třeba:
+> `(Int(Int) f)(a)`
+
 [^1] Zvažuji také speciální verzi porovnávání floating-point hodnot, které by zanedbávalo rozdíl v rámci nějaké předdefinované přesnosti.
-
-## Shrnutí
-
-V textu výše jsem se pokusil popsat syntaxi i sémantiku jazyka postupně.
-Zde se pokusím stručně a nějak více systematicky shrnout a případně upřesnit některé koncepty.
-
-### Typová anotace
-
-Vytváří z výrazového příkazu výraz.
-Pobíhá explicitně, či implicitně ve specifických příkazech a výrazech.
-
-```
-Int {};                    // explicitní typová anotace
-Int i = {};                // implicitní anotace v deklaraci; je sémanticky ekvivalentní:
-Int i = Int {};
-i = {};                    // implicitní anotace v přiřazení; je sémanticky ekvivalentní:
-i = Int {};
-Int if (c) {} else {};     // implicitní anotace v ifu; je sémanticky ekvivalentní:
-if (c) Int {} else Int {};
-```
-
-Implicitní anotace se propaguje do hloubky.
-
-```
-Int if (c) if (d) {} else {} else {}
-// první krok:
-if (c) Int if (d) {} else {} else Int {}
-// druhý krok:
-if (c) if (d) Int {} else Int {} else Int {}
-```
-
-### Evaluace výrazových příkazů
-
-Při použití výrazových příkazů v roli výrazů (při typové anotaci) dochází k evaluaci jejich hodnoty.
-Z výazového příkazu je možné vrátit hodnotu příkazem vrácení.
-Příkaz vrácení se propaguje na nejbližší vnější výrazový příkaz i přes jiné vnořené příkazy.
-
-```
-Int { return x }
-Int { { return x } }                  // propagace až na vnější block
-Int { Int { return x } }              // propagace končí na vnořeném blocku
-Int { if (c) return x else return y } // propagace přes if
-```
 
 ## "Zvláštnosti" jazyka
 
@@ -759,6 +876,7 @@ Také to umožňuje vynechat větve podmínek.
 
 ```
 if (c) else return x;
+if (c) return x else;
 when (c);
 ```
 

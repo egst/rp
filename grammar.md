@@ -18,7 +18,7 @@
 <expr>  -- expression
 <rexpr> -- right-consuming expression
 <e>     -- atomic expressions, parentheses
-<e0>    -- reserved (možná něco jako scope resolution '::' v C++ pro namespacy)
+<e0>    -- reserved (možná něco jako scope resolution ('::' v C++) pro namespacy)
 <eCall> -- function call
 <eSubs> -- subscript
 <eType> -- type annotation & conversion
@@ -46,9 +46,11 @@
 <rtAnn> -- right-consuming type annotation
 <tCon>  -- type conversion
 
-<exIf>  -- expression if
-<rsIf>  -- right-consuming statement if
+<exIf>  -- expression if condition
+<esIf>  -- expression statement if
+<rsIf>  -- right-consuming expression statement if
 <psIf>  -- pure statement if
+<while> -- while condition
 
 <fDef>  -- function definition (& declaration)
 <afDef> -- anonymous function definition
@@ -66,17 +68,25 @@
 ## Gramatika
 
 ```
+-- pomocné neterminály:
+<FPL>   -> '(' ')' | '(' (<type> <id>)@',' ')'
+<FTL>   -> '(' ')' | '(' (<type>)@','      ')'
+<FAL>   -> '(' ')' | '(' (<esx>)@','       ')'
+<SL>    -> ''      | (<stmt>)@';'
+
 -- obecná struktura programu:
 <root>  -> <SL>
 <stmt>  -> <pstmt> | <esx>
 <esx>   -> <estmt> | <rstmt> | <expr>
+
+-- rozřazení specifických příkazů:
 <estmt> -> <block> | <esIf>
 <rstmt> -> <rsIf>
 <pstmt> -> '' | <ret> | <decl> | <assgn> | <fDef> | <psIf> | <when>
 
 <id>    -> `[_a-z][_a-zA-Z1-9]*`
 
-<type>  -> `[A-Z][_a-zA-Z1-9]*` | <tFun> | <tBuff> | <tVec>
+<type>  -> `[A-Z][_a-zA-Z1-9]*` | '$' | <tFun> | <tBuff> | <tVec>
 
 -- složené typy:
 <tFun>  -> <type> '(' <FTL>  ')'
@@ -90,17 +100,13 @@
 <ret>   -> 'return' <esx>
 
 -- funkce:
+-- (umožňuji zde i funkce bez návratové hodnoty, i když jsem se zatím nezmiňoval o jejich sémantice)
 <fDef>  -> <type> <id> <FPL> <esx>
          |        <id> <FPL> <cstmt>
 <afDef> -> <type>      <FPL> <esx>
          |             <FPL> <cstmt>
 
--- pomocné neterminály:
-<FPL>   -> '(' ')' | '(' (<type> <id>)@',' ')'
-<FTL>   -> '(' ')' | '(' (<type>)@','      ')'
-<FAL>   -> '(' ')' | '(' (<expr>)@','      ')'
-<SL>    -> ''      | (<stmt>)@';'
-
+-- blocky:
 <block> -> '{' <SL> '}'
 
 -- podmínky:
@@ -132,13 +138,14 @@
 <e0>    -> <e>
 
 -- operátory:
-<opPre> -> '+'  | '-'  | '!'
-<opMul> -> '*'  | '/'  | '%' |
-<opAdd> -> '+'  | '-'  | 
-<opOrd> -> '<'  | '<=' | '>' | '>='
-<opEq>  -> '==' | '!='
-<opAnd> -> '&&'
-<opOr>  -> '||'
+<opPre> -> '+'  | '-'  | '!'        -- | <type> <opPre>
+<opMul> -> '*'  | '/'  | '%'        -- | <type> <opMul>
+<opAdd> -> '+'  | '-'               -- | <type> <opAdd>
+<opOrd> -> '<'  | '<=' | '>' | '>=' -- | <type> <opOrd>
+<opEq>  -> '==' | '!='              -- | <type> <opEq>
+<opAnd> -> '&&'                     -- | <type> <opAnd>
+<opOr>  -> '||'                     -- | <type> <opOr>
+-- (Zakomentovaná pravidla tu mám pro potenciální rozšíření, které popíši později.)
 
 -- Jakmile je napravo right-consuming výraz, celý výraz je také right-consuming.
 -- Right-consuming výrazy nemohou být levým operandem žádné binární operace.
@@ -158,7 +165,7 @@
 <nLit>  -> `([0-9]*[.]?[0-9]+|[0-9]+.)([eE][+-]?[0-9]+)?`
 <bLit>  -> 'true' | 'false'
 
--- specifické operace:
+-- další specifické operace:
 <fCall> -> <e0> <FAL>
 <subs>  -> <eSubs> [ <expr> ]
 <tAnn>  -> <type> <estmt>
